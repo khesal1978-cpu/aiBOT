@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: jannat-ai-bot
+    runtime: node
+    plan: free # Change to 'starter' if you need more power
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - fromGroup: jannat-secrets # You can create an Env Group in Render dashboard
+      - key: PORT
+        value: 5000
+      - key: RENDER_DISK_PATH
+        value: /data
+    disk:
+      name: jannat-data
+      mountPath: /data
+      sizeGB: 1
