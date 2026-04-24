@@ -8,6 +8,32 @@ async function main() {
   await db.initDB();
   console.log('Database initialized successfully.');
 
+  // Auto-sync images from GitHub folder to DB
+  console.log('Syncing images from source...');
+  const count = await db.autoSyncImages();
+  console.log(`Synced ${count} images to database.`);
+
+  // If on Render, copy images from source to persistent disk
+  if (process.env.RENDER_DISK_PATH) {
+    const fs = require('fs');
+    const path = require('path');
+    const sourceDir = path.join(__dirname, 'images');
+    const targetDir = path.join(process.env.RENDER_DISK_PATH, 'images');
+
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+    if (fs.existsSync(sourceDir)) {
+      const files = fs.readdirSync(sourceDir).filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+      files.forEach(f => {
+        const targetPath = path.join(targetDir, f);
+        if (!fs.existsSync(targetPath)) {
+          fs.copyFileSync(path.join(sourceDir, f), targetPath);
+        }
+      });
+      console.log('Images copied to persistent storage.');
+    }
+  }
+
   console.log('Starting Admin Server...');
   startAdminServer();
 

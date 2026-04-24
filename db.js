@@ -353,6 +353,23 @@ async function getAllTokens() {
   });
 }
 
+async function autoSyncImages() {
+  const fs = require('fs');
+  const IMAGES_DIR = process.env.RENDER_DISK_PATH 
+    ? path.join(__dirname, 'images') // Read from source first
+    : path.join(__dirname, 'images');
+
+  if (!fs.existsSync(IMAGES_DIR)) return;
+
+  const files = fs.readdirSync(IMAGES_DIR).filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
+  
+  return new Promise((resolve) => {
+    const stmt = db.prepare('INSERT OR IGNORE INTO images (filename) VALUES (?)');
+    files.forEach(f => stmt.run(f));
+    stmt.finalize(() => resolve(files.length));
+  });
+}
+
 module.exports = {
   db,
   initDB,
@@ -381,5 +398,6 @@ module.exports = {
   upgradeToPremium,
   addToken,
   removeToken,
-  getAllTokens
+  getAllTokens,
+  autoSyncImages
 };
