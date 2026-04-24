@@ -18,6 +18,11 @@ app.get('/', (req, res) => {
   res.redirect('/admin.html');
 });
 
+// Public Health Check (For Cron-jobs / Keeping Awake)
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // Basic Auth
 app.use(basicAuth({
   users: { [config.ADMIN_USER]: config.ADMIN_PASS },
