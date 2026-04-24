@@ -3,7 +3,7 @@ services:
     name: jannat-ai-bot
     runtime: node
     plan: free # Change to 'starter' if you need more power
-    buildCommand: npm install
+    buildCommand: npm install && npm rebuild sqlite3 --build-from-source
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
