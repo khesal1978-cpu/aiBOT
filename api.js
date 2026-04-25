@@ -38,7 +38,7 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: jannatPersona.corePrompt },
             ...chatHistory.slice(-10),
@@ -55,7 +55,8 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
         return data.choices[0].message.content.trim();
       }
 
-      console.warn(`[Groq] Token ${idx} failed with status ${response.status}. Rotating...`);
+      const errorData = await response.text();
+      console.warn(`[Groq] Token ${idx} failed (${response.status}): ${errorData}`);
       await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
