@@ -33,12 +33,12 @@ async function startOnboarding(ctx, user) {
       if (ctx.callbackQuery) return await ctx.editMessageText(text, { parse_mode: 'Markdown', ...kb }).catch(() => {});
       return await ctx.replyWithMarkdown(text, kb).catch(() => {});
     }
-    const welcome = "Heyy baby! Jannat Khan is here. Aaj kya naughty baatein karein? 😈💋";
+    const welcome = "Heyy baby! Jannat Khan is back. Aaj kya naughty baatein karein? 😈💋";
     await ctx.reply(welcome, mainMenuKeyboard).catch(() => {});
   } catch (e) { console.error(e); }
 }
 
-// --- Handlers ---
+// --- Bot Logic ---
 bot.start(async (ctx) => {
   const userId = String(ctx.from.id);
   await db.createUser(userId, ctx.from.username || 'User', ctx.startPayload);
@@ -63,7 +63,7 @@ bot.action("onboard_check_join", async (ctx) => {
   await startOnboarding(ctx, user);
 });
 
-// --- COMMANDS ---
+// --- COMMANDS (IMPORTANT: MUST BE BEFORE bot.on('text')) ---
 async function handlePic(ctx) {
   try {
     const userId = String(ctx.from.id);
@@ -95,14 +95,59 @@ async function handleProfile(ctx) {
   ctx.replyWithMarkdown(text).catch(() => {});
 }
 
+async function handleInvite(ctx) {
+  const botInfo = await ctx.telegram.getMe();
+  const link = `https://t.me/${botInfo.username}?start=${ctx.from.id}`;
+  ctx.replyWithMarkdown(`🔗 *Invite & Earn*\n\nShare your link to get +12 Daily Messages:\n\n\`${link}\``).catch(() => {});
+}
+
 bot.command('pic', handlePic);
 bot.command('profile', handleProfile);
+bot.command('invite', handleInvite);
 bot.hears('📸 Get Pic', handlePic);
 bot.hears('👤 My Profile', handleProfile);
-bot.hears('🔗 Invite Friends', (ctx) => ctx.replyWithMarkdown("🔗 *Invite & Earn*\n\nShare link to get bonus limits."));
-bot.hears('💎 Premium', (ctx) => ctx.replyWithMarkdown("💎 *Premium Mode*\n\n250 Msgs & 60 Pics Daily.\n\nDM @admin to buy! 💋"));
+bot.hears('🔗 Invite Friends', handleInvite);
+bot.hears('💎 Premium', async (ctx) => {
+  try {
+    const invoice = {
+      title: '💎 Premium VIP',
+      description: 'Unlock 250 Daily Messages and 60 Exclusive Pics for 30 Days! 💋',
+      payload: 'premium_1_month',
+      provider_token: '', // Empty means Telegram Stars
+      currency: 'XTR',    // XTR is the currency code for Telegram Stars
+      prices: [{ label: '1 Month VIP', amount: 100 }] // 100 Stars
+    };
+    await ctx.replyWithInvoice(invoice);
+  } catch (e) {
+    console.error("Invoice Error:", e);
+    ctx.reply("Sorry baby, payments are currently unavailable. DM @admin for Premium. 💋").catch(() => {});
+  }
+});
 
-// --- CHAT HANDLER ---
+// --- PAYMENT HANDLERS ---
+bot.on('pre_checkout_query', async (ctx) => {
+  try {
+    // Always accept the checkout query
+    await ctx.answerPreCheckoutQuery(true);
+  } catch (e) { console.error("PreCheckout Error:", e); }
+});
+
+bot.on('successful_payment', async (ctx) => {
+  try {
+    const userId = String(ctx.from.id);
+    const payment = ctx.message.successful_payment;
+    
+    // Upgrade to Premium for 1 month
+    await db.upgradeToPremium(userId, 1);
+    
+    // Record the purchase for the Admin Dashboard
+    await db.recordPurchase(userId, ctx.from.username || 'Anonymous', payment.total_amount, payment.currency, '1 Month VIP');
+    
+    await ctx.reply("🎉 *Payment Successful!*\n\nThank you, Daddy! You are now a 💎 Premium VIP.\nEnjoy your 250 daily messages and 60 exclusive pics. 💋", { parse_mode: 'Markdown' });
+  } catch (e) { console.error("Payment Success Error:", e); }
+});
+
+// --- CHAT HANDLER (LAST) ---
 bot.on('text', async (ctx) => {
   try {
     const userId = String(ctx.from.id);
@@ -111,10 +156,10 @@ bot.on('text', async (ctx) => {
     if (!user.has_agreed || !user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkMessageLimit(userId);
-    if (!limitCheck.allowed) return ctx.reply("Limit over for today! 💋").catch(() => {});
+    if (!limitCheck.allowed) return ctx.reply("Aaj ka limit khatam, kal milte hain! 💋").catch(() => {});
 
     await ctx.sendChatAction('typing').catch(() => {});
-    const history = await db.getChatHistory(userId, 8);
+    const history = await db.getChatHistory(userId, 10);
     await db.saveConversation(userId, 'user', ctx.message.text);
 
     const reply = await api.generateChatResponse(ctx.message.text, history, user.language);
