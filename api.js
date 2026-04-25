@@ -32,9 +32,9 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
     const currentToken = pool[idx];
 
     try {
-        // Safe check for userMessage
-        const safeMessage = userMessage || "hi";
-        const msgLen = safeMessage.split(' ').length;
+        // Force userMessage to be a string
+        const safeMessage = (userMessage || "hi").toString();
+        const msgLen = safeMessage.split(/\s+/).length;
         const dynamicMaxTokens = msgLen < 5 ? 50 : (msgLen < 15 ? 150 : 400);
 
         const response = await fetch(GROQ_URL, {
