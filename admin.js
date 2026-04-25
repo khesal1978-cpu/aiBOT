@@ -35,8 +35,13 @@ const IMAGES_DIR = process.env.RENDER_DISK_PATH
 
 // Ensure images directory exists
 const fs = require('fs');
-if (!fs.existsSync(IMAGES_DIR)) {
-  fs.mkdirSync(IMAGES_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(IMAGES_DIR)) {
+    fs.mkdirSync(IMAGES_DIR, { recursive: true });
+    console.log(`[Storage] Directory ready at: ${IMAGES_DIR}`);
+  }
+} catch (err) {
+  console.warn(`[Storage] Permission denied for ${IMAGES_DIR}. Using local fallback.`);
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
