@@ -7,6 +7,7 @@ const migrations = [
   `ALTER TABLE users ADD COLUMN joined_channel INTEGER DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN total_messages_all_time INTEGER DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN premium_expires DATETIME`,
+  `ALTER TABLE users ADD COLUMN roleplay_mode TEXT DEFAULT 'default'`,
   `ALTER TABLE images ADD COLUMN usage_count INTEGER DEFAULT 0`,
   `CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
