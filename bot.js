@@ -17,8 +17,8 @@ async function startOnboarding(ctx, user) {
   const userId = String(ctx.from.id);
   
   try {
-    // 1. AGE CHECK
-    if (!user || !user.has_agreed) {
+    // 1. AGE CHECK (STRICT)
+    if (!user.has_agreed) {
       const text = "🔞 **18+ WARNING**\n\nThis bot contains adult content. By clicking 'I Agree', you confirm that you are at least 18 years old.";
       const keyboard = Markup.inlineKeyboard([Markup.button.callback("✅ I Agree (18+)", "onboard_agree")]);
       
@@ -28,23 +28,9 @@ async function startOnboarding(ctx, user) {
       return await ctx.replyWithMarkdown(text, keyboard).catch(() => {});
     }
 
-    // 2. LANGUAGE CHECK
-    if (!user.language || (user.language === 'Hinglish' && !user.joined_channel && !user.has_agreed_done)) {
-       const text = "🌐 **Select Your Language**\n\nChoose how you want me to talk to you, baby. 💋";
-       const keyboard = Markup.inlineKeyboard([
-          [Markup.button.callback("🇮🇳 Hinglish", "onboard_lang_hinglish")],
-          [Markup.button.callback("🇺🇸 English", "onboard_lang_english")]
-       ]);
-       
-       if (ctx.callbackQuery) {
-         return await ctx.editMessageText(text, { parse_mode: 'Markdown', ...keyboard }).catch(() => {});
-       }
-       return await ctx.replyWithMarkdown(text, keyboard).catch(() => {});
-    }
-
-    // 3. CHANNEL CHECK
+    // 2. CHANNEL CHECK (STRICT)
     if (!user.joined_channel) {
-      const text = "📢 **Final Step!**\n\nJoin our support channel to stay updated! 💋\n\n👉 Join @jannataisupport";
+      const text = "📢 **JOIN SUPPORT CHANNEL**\n\nJoin our support channel to stay updated with my new pics and features! 💋\n\n👉 Join @jannataisupport";
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.url("📢 Join Channel", "https://t.me/jannataisupport")],
         [Markup.button.callback("✅ I have joined", "onboard_check_join")]
@@ -56,7 +42,7 @@ async function startOnboarding(ctx, user) {
       return await ctx.replyWithMarkdown(text, keyboard).catch(() => {});
     }
 
-    // 4. WELCOME GREETING
+    // 3. WELCOME GREETING (Only if they haven't been greeted)
     const limits = db.getLimits(user);
     const welcome = "Heyy baby! Main Jannat Khan hoon... 21 saal ki Lucknow ki naughty ladki. Aaj kya karein hum? 😈💋";
     await ctx.reply(`${welcome}\n\n🔥 *Daily Limits:*\n💬 ${limits.msgsLimit} Messages\n📸 ${limits.imgsLimit} Pics`, mainMenuKeyboard).catch(() => {});
@@ -71,28 +57,20 @@ bot.start(async (ctx) => {
   const username = ctx.from.username || ctx.from.first_name || 'User';
   await db.createUser(userId, username, ctx.startPayload);
   const user = await db.getUser(userId);
+  if (user.has_agreed && user.joined_channel) {
+     const limits = db.getLimits(user);
+     return ctx.reply(`Welcome back, jaan! 💋`, mainMenuKeyboard);
+  }
   await startOnboarding(ctx, user);
 });
 
 bot.action("onboard_agree", async (ctx) => {
   const userId = String(ctx.from.id);
-  // CRITICAL FIX: Ensure user exists before updating
   const username = ctx.from.username || ctx.from.first_name || 'User';
   await db.createUser(userId, username); 
-  
   await db.updateOnboarding(userId, 'has_agreed', 1);
   const user = await db.getUser(userId);
   await ctx.answerCbQuery("💋").catch(() => {});
-  await startOnboarding(ctx, user);
-});
-
-bot.action(/onboard_lang_(.+)/, async (ctx) => {
-  const userId = String(ctx.from.id);
-  const lang = ctx.match[1] === 'hinglish' ? 'Hinglish' : 'English';
-  await db.updateOnboarding(userId, 'language', lang);
-  const user = await db.getUser(userId);
-  user.has_agreed_done = true; 
-  await ctx.answerCbQuery(`Set to ${lang}! 💋`).catch(() => {});
   await startOnboarding(ctx, user);
 });
 
@@ -104,12 +82,12 @@ bot.action("onboard_check_join", async (ctx) => {
   await startOnboarding(ctx, user);
 });
 
-// ---- Feature Handlers ----
+// ---- Handlers ----
 async function handlePic(ctx) {
   try {
     const userId = String(ctx.from.id);
     const user = await db.getUser(userId);
-    if (!user || !user.joined_channel) return startOnboarding(ctx, user);
+    if (!user || !user.has_agreed || !user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkImageLimit(userId);
     if (!limitCheck.allowed) {
@@ -144,14 +122,13 @@ bot.on('text', async (ctx) => {
     const userId = String(ctx.from.id);
     let user = await db.getUser(userId);
     
-    // CRITICAL FIX: Create user if they messaged without /start
     if (!user) {
       const username = ctx.from.username || ctx.from.first_name || 'User';
       await db.createUser(userId, username);
       user = await db.getUser(userId);
     }
 
-    if (!user.joined_channel) return startOnboarding(ctx, user);
+    if (!user.has_agreed || !user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkMessageLimit(userId);
     if (!limitCheck.allowed) return ctx.reply("Limit over!").catch(() => {});

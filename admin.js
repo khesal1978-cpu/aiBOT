@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('./db');
 const config = require('./config');
 const api = require('./api');
+const { bot } = require('./bot');
 const fs = require('fs');
 
 const app = express();
@@ -139,6 +140,35 @@ app.delete('/api/tokens/:id', async (req, res) => {
     await db.removeToken(req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- BROADCAST SYSTEM ---
+app.post('/api/broadcast', async (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: 'Message is required' });
+
+  try {
+    const users = await db.getAllUsers();
+    let successCount = 0;
+    let failCount = 0;
+
+    // Send to all users
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(user.id, message, { parse_mode: 'Markdown' });
+        successCount++;
+        // Small delay to prevent Telegram flooding limits
+        await new Promise(r => setTimeout(r, 50)); 
+      } catch (e) {
+        failCount++;
+        console.error(`Failed to send to ${user.id}: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, sent: successCount, failed: failCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 function startAdminServer() {
