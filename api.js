@@ -32,8 +32,9 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
     const currentToken = pool[idx];
 
     try {
-        // Dynamically set max tokens to prevent long-winded replies
-        const msgLen = userMessage.split(' ').length;
+        // Safe check for userMessage
+        const safeMessage = userMessage || "hi";
+        const msgLen = safeMessage.split(' ').length;
         const dynamicMaxTokens = msgLen < 5 ? 50 : (msgLen < 15 ? 150 : 400);
 
         const response = await fetch(GROQ_URL, {
@@ -47,7 +48,7 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
             messages: [
               { role: 'system', content: jannatPersona.corePrompt },
               ...chatHistory.slice(-10),
-              { role: 'user', content: userMessage }
+              { role: 'user', content: safeMessage }
             ],
             temperature: 0.9,
             max_tokens: dynamicMaxTokens
