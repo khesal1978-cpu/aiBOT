@@ -1,0 +1,83 @@
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
+
+// Smart Database Path Selection
+let dbPath;
+const renderDiskPath = process.env.RENDER_DISK_PATH;
+
+if (renderDiskPath) {
+  const diskPath = path.join(renderDiskPath, 'database.db');
+  try {
+    // Test if we can write to the directory
+    if (!fs.existsSync(renderDiskPath)) {
+      fs.mkdirSync(renderDiskPath, { recursive: true });
+    }
+    // If we get here, it's writable (or we're local)
+    dbPath = diskPath;
+  } catch (err) {
+    console.warn(`[DB] Warning: Cannot use ${renderDiskPath}. Falling back to local storage.`);
+    dbPath = path.join(__dirname, 'database.db');
+  }
+} else {
+  dbPath = path.join(__dirname, 'database.db');
+}
+
+console.log(`[DB] Using database at: ${dbPath}`);
+const db = new sqlite3.Database(dbPath);
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      // Users table
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        first_name TEXT,
+        username TEXT,
+        messages_sent INTEGER DEFAULT 0,
+        images_viewed INTEGER DEFAULT 0,
+        is_vip INTEGER DEFAULT 0,
+        is_banned INTEGER DEFAULT 0,
+        last_image_reset TEXT,
+        joined_date TEXT,
+        onboarding_state TEXT DEFAULT 'START'
+      )`);
+
+      // Conversations table
+      db.run(`CREATE TABLE IF NOT EXISTS conversations (
+        user_id INTEGER,
+        role TEXT,
+        content TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Images table
+      db.run(`CREATE TABLE IF NOT EXISTS images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT UNIQUE,
+        category TEXT DEFAULT 'general'
+      )`);
+
+      // Viewed Images tracker
+      db.run(`CREATE TABLE IF NOT EXISTS viewed_images (
+        user_id INTEGER,
+        image_id INTEGER,
+        PRIMARY KEY (user_id, image_id)
+      )`);
+
+      // Tokens management table
+      db.run(`CREATE TABLE IF NOT EXISTS tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE,
+        provider TEXT DEFAULT 'huggingface',
+        is_active INTEGER DEFAULT 1,
+        added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  });
+}
+
+// ... (Rest of the functions remain the same)
