@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 const config = require('./config');
 
-const MODEL_URL = 'https://router.huggingface.co/v1/chat/completions';
+const MODEL_URL = 'https://api-inference.huggingface.co/models/meta-llama/Llama-3.1-70B-Instruct/v1/chat/completions';
 const MODEL_NAME = 'meta-llama/Llama-3.1-70B-Instruct';
 
 const jannatPersona = {
