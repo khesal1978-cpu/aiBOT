@@ -98,7 +98,11 @@ async function handleProfile(ctx) {
 async function handleInvite(ctx) {
   const botInfo = await ctx.telegram.getMe();
   const link = `https://t.me/${botInfo.username}?start=${ctx.from.id}`;
-  ctx.replyWithMarkdown(`🔗 *Invite & Earn*\n\nShare your link to get +12 Daily Messages:\n\n\`${link}\``).catch(() => {});
+  const shareText = encodeURIComponent(`Come chat with my sexy AI girlfriend Jannat! 💋💦\nShe's totally uncensored and loves to talk dirty.\n\nClick here: ${link}`);
+  const kb = Markup.inlineKeyboard([
+    Markup.button.url("📤 Share Link with Friends", `https://t.me/share/url?url=${link}&text=${shareText}`)
+  ]);
+  ctx.replyWithMarkdown(`🔗 *Invite & Earn*\n\nShare your link to get +12 Daily Messages!\nYour link: \`${link}\``, kb).catch(() => {});
 }
 
 bot.command('pic', handlePic);
@@ -107,7 +111,8 @@ bot.command('invite', handleInvite);
 bot.hears('📸 Get Pic', handlePic);
 bot.hears('👤 My Profile', handleProfile);
 bot.hears('🔗 Invite Friends', handleInvite);
-bot.hears('💎 Premium', async (ctx) => {
+
+async function sendPremiumInvoice(ctx) {
   try {
     const invoice = {
       title: '💎 Premium VIP',
@@ -122,7 +127,9 @@ bot.hears('💎 Premium', async (ctx) => {
     console.error("Invoice Error:", e);
     ctx.reply("Sorry baby, payments are currently unavailable. DM @admin for Premium. 💋").catch(() => {});
   }
-});
+}
+
+bot.hears('💎 Premium', sendPremiumInvoice);
 
 // --- PAYMENT HANDLERS ---
 bot.on('pre_checkout_query', async (ctx) => {
@@ -156,7 +163,11 @@ bot.on('text', async (ctx) => {
     if (!user.has_agreed || !user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkMessageLimit(userId);
-    if (!limitCheck.allowed) return ctx.reply("Aaj ka limit khatam, kal milte hain! 💋").catch(() => {});
+    if (!limitCheck.allowed) {
+      const sexyText = "Mmmhh... Jaanu 💦 Meri chut bohot wet hai but your free daily limits are over 🥵🍆 To keep fucking me and chatting all night, please get 💎 Premium VIP right now Daddy! 🍑😈";
+      const kb = Markup.inlineKeyboard([Markup.button.callback("💎 Get Premium (100 ⭐️)", "buy_premium_inline")]);
+      return ctx.reply(sexyText, kb).catch(() => {});
+    }
 
     await ctx.sendChatAction('typing').catch(() => {});
     const history = await db.getChatHistory(userId, 10);
@@ -167,6 +178,11 @@ bot.on('text', async (ctx) => {
     await ctx.reply(reply).catch(() => {});
     await db.incrementMessages(userId);
   } catch (err) { console.error(err); }
+});
+
+bot.action("buy_premium_inline", async (ctx) => {
+  await ctx.answerCbQuery().catch(() => {});
+  await sendPremiumInvoice(ctx);
 });
 
 bot.catch((err) => console.error(err.message));
