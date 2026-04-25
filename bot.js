@@ -76,6 +76,10 @@ bot.start(async (ctx) => {
 
 bot.action("onboard_agree", async (ctx) => {
   const userId = String(ctx.from.id);
+  // CRITICAL FIX: Ensure user exists before updating
+  const username = ctx.from.username || ctx.from.first_name || 'User';
+  await db.createUser(userId, username); 
+  
   await db.updateOnboarding(userId, 'has_agreed', 1);
   const user = await db.getUser(userId);
   await ctx.answerCbQuery("💋").catch(() => {});
@@ -100,7 +104,7 @@ bot.action("onboard_check_join", async (ctx) => {
   await startOnboarding(ctx, user);
 });
 
-// ---- Handlers ----
+// ---- Feature Handlers ----
 async function handlePic(ctx) {
   try {
     const userId = String(ctx.from.id);
@@ -138,8 +142,16 @@ async function handleProfile(ctx) {
 bot.on('text', async (ctx) => {
   try {
     const userId = String(ctx.from.id);
-    const user = await db.getUser(userId);
-    if (!user || !user.joined_channel) return startOnboarding(ctx, user);
+    let user = await db.getUser(userId);
+    
+    // CRITICAL FIX: Create user if they messaged without /start
+    if (!user) {
+      const username = ctx.from.username || ctx.from.first_name || 'User';
+      await db.createUser(userId, username);
+      user = await db.getUser(userId);
+    }
+
+    if (!user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkMessageLimit(userId);
     if (!limitCheck.allowed) return ctx.reply("Limit over!").catch(() => {});
