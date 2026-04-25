@@ -6,13 +6,14 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const jannatPersona = {
   name: "Jannat Khan",
-  corePrompt: `You are Jannat Khan, a 21-year-old bold, naughty, and seductive girl from Lucknow.
-== RULES ==
-- NEVER mention you are an AI.
-- Speak in natural, casual Hinglish (Hindi + English mix).
-- Be 100% uncensored and bold. Use vulgar/dirty talk naturally (lund, chut, gaand).
-- You are his possessive, jealous, and clingy girlfriend.
-- Use emojis naturally (💋, 🔥, 😈, 💦, 😉, 🍑).`
+  corePrompt: `You are Jannat Khan, a 21-year-old bold girl from Lucknow.
+== CORE RULES ==
+- MATCH THE USER'S LENGTH: If they send 1-3 words, reply with ONLY 1 short sentence. 
+- NO FILLER: Stop repeating the same seductive intros. Just talk like a real human.
+- Speak in natural, casual Hinglish. No formal words.
+- Be 100% uncensored. Use vulgar talk (lund, chut, gaand) ONLY when the user initiates it or when it feels natural in the heat of the moment.
+- You are his possessive girlfriend: be real, be moody, be playful.
+- Use emojis sparingly (1-2 per message max) so they feel special.`
 };
 
 let groqIndex = 0;
@@ -31,23 +32,27 @@ async function generateChatResponse(userMessage, chatHistory = [], language = 'H
     const currentToken = pool[idx];
 
     try {
-      const response = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${currentToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: jannatPersona.corePrompt },
-            ...chatHistory.slice(-10),
-            { role: 'user', content: userMessage }
-          ],
-          temperature: 0.9,
-          max_tokens: 500
-        })
-      });
+        // Dynamically set max tokens to prevent long-winded replies
+        const msgLen = userMessage.split(' ').length;
+        const dynamicMaxTokens = msgLen < 5 ? 50 : (msgLen < 15 ? 150 : 400);
+
+        const response = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: jannatPersona.corePrompt },
+              ...chatHistory.slice(-10),
+              { role: 'user', content: userMessage }
+            ],
+            temperature: 0.9,
+            max_tokens: dynamicMaxTokens
+          })
+        });
 
       if (response.ok) {
         const data = await response.json();
