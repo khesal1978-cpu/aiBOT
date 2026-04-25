@@ -12,6 +12,9 @@ const mainMenuKeyboard = Markup.keyboard([
   ['💎 Premium', '🔗 Invite Friends']
 ]).resize();
 
+// Clear the extra menu button (blue slash button)
+bot.telegram.setMyCommands([]);
+
 // --- Onboarding ---
 async function startOnboarding(ctx, user) {
   try {
