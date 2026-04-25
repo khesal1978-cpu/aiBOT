@@ -2,6 +2,7 @@ const { Telegraf, Markup } = require('telegraf');
 const config = require('./config');
 const db = require('./db');
 const api = require('./api');
+const personas = require('./personas');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,7 +10,8 @@ const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
 const mainMenuKeyboard = Markup.keyboard([
   ['📸 Get Pic', '👤 My Profile'],
-  ['💎 Premium', '🔗 Invite Friends']
+  ['🎭 Roleplay', '🔗 Invite Friends'],
+  ['💎 Premium']
 ]).resize();
 
 // Remove the extra blue "Menu" button completely
@@ -38,7 +40,7 @@ async function startOnboarding(ctx, user) {
   } catch (e) { console.error(e); }
 }
 
-// --- Bot Logic ---
+// --- Handlers ---
 bot.start(async (ctx) => {
   const userId = String(ctx.from.id);
   await db.createUser(userId, ctx.from.username || 'User', ctx.startPayload);
@@ -63,7 +65,7 @@ bot.action("onboard_check_join", async (ctx) => {
   await startOnboarding(ctx, user);
 });
 
-// --- COMMANDS (IMPORTANT: MUST BE BEFORE bot.on('text')) ---
+// --- COMMANDS ---
 async function handlePic(ctx) {
   try {
     const userId = String(ctx.from.id);
@@ -91,25 +93,39 @@ async function handleProfile(ctx) {
   const user = await db.getUser(String(ctx.from.id));
   if (!user) return;
   const limits = db.getLimits(user);
-  const text = `👤 *Your Profile*\n\nStatus: ${limits.isPremium ? '💎 Premium' : '🆓 Free'}\n💬 Msgs Left: ${Math.max(0, limits.msgsLimit - user.msgs_today)}\n📸 Pics Left: ${Math.max(0, limits.imgsLimit - user.imgs_today)}\n📊 Total Chats: ${user.total_messages_all_time}`;
+  const text = `👤 *Your Profile*\n\nStatus: ${limits.isPremium ? '💎 Premium' : '🆓 Free'}\nMode: ${user.roleplay_mode.toUpperCase()}\n💬 Msgs Left: ${Math.max(0, limits.msgsLimit - user.msgs_today)}\n📸 Pics Left: ${Math.max(0, limits.imgsLimit - user.imgs_today)}`;
   ctx.replyWithMarkdown(text).catch(() => {});
 }
 
-async function handleInvite(ctx) {
-  const botInfo = await ctx.telegram.getMe();
-  const link = `https://t.me/${botInfo.username}?start=${ctx.from.id}`;
-  ctx.replyWithMarkdown(`🔗 *Invite & Earn*\n\nShare your link to get +12 Daily Messages:\n\n\`${link}\``).catch(() => {});
+async function handleRoleplayMenu(ctx) {
+  const text = "🎭 **Select Your Fantasy**\n\nChoose my role for today, baby. I'll stay as Jannat, but I'll play along with whatever you want... 💋";
+  const kb = Markup.inlineKeyboard([
+    [Markup.button.callback("🏠 Step-Sister", "rp_stepSis"), Markup.button.callback("🤱 Step-Mom", "rp_stepMom")],
+    [Markup.button.callback("👠 Mistress", "rp_mistress"), Markup.button.callback("🔥 Cuckoldress", "rp_cuck")],
+    [Markup.button.callback("📚 English Teacher", "rp_teacher")],
+    [Markup.button.callback("✨ Back to Normal", "rp_default")]
+  ]);
+  await ctx.replyWithMarkdown(text, kb).catch(() => {});
 }
+
+bot.action(/rp_(.+)/, async (ctx) => {
+  const mode = ctx.match[1];
+  const userId = String(ctx.from.id);
+  await db.setRoleplayMode(userId, mode);
+  await ctx.answerCbQuery(`Roleplay mode: ${mode.toUpperCase()} 💋`).catch(() => {});
+  await ctx.editMessageText(`✅ **Roleplay Updated!**\n\nMain ab tumhari **${mode.toUpperCase()}** hoon. Chalo, shuru karein? 😈`, { parse_mode: 'Markdown' }).catch(() => {});
+});
 
 bot.command('pic', handlePic);
 bot.command('profile', handleProfile);
-bot.command('invite', handleInvite);
+bot.command('roleplay', handleRoleplayMenu);
 bot.hears('📸 Get Pic', handlePic);
 bot.hears('👤 My Profile', handleProfile);
-bot.hears('🔗 Invite Friends', handleInvite);
+bot.hears('🎭 Roleplay', handleRoleplayMenu);
+bot.hears('🔗 Invite Friends', (ctx) => ctx.replyWithMarkdown("🔗 *Invite & Earn*\n\nShare link to get bonus limits. Feature fully live soon!"));
 bot.hears('💎 Premium', (ctx) => ctx.replyWithMarkdown("💎 *Premium Mode*\n\n250 Msgs & 60 Pics Daily.\n\nDM @admin to buy! 💋"));
 
-// --- CHAT HANDLER (LAST) ---
+// --- CHAT HANDLER ---
 bot.on('text', async (ctx) => {
   try {
     const userId = String(ctx.from.id);
@@ -118,13 +134,17 @@ bot.on('text', async (ctx) => {
     if (!user.has_agreed || !user.joined_channel) return startOnboarding(ctx, user);
 
     const limitCheck = await db.checkMessageLimit(userId);
-    if (!limitCheck.allowed) return ctx.reply("Aaj ka limit khatam, kal milte hain! 💋").catch(() => {});
+    if (!limitCheck.allowed) return ctx.reply("Limit over for today! 💋").catch(() => {});
 
     await ctx.sendChatAction('typing').catch(() => {});
-    const history = await db.getChatHistory(userId, 10);
+    const history = await db.getChatHistory(userId, 8);
     await db.saveConversation(userId, 'user', ctx.message.text);
 
-    const reply = await api.generateChatResponse(ctx.message.text, history, user.language);
+    // Get current persona prompt
+    const currentMode = user.roleplay_mode || 'default';
+    const subPrompt = personas[currentMode] || "";
+    
+    const reply = await api.generateChatResponse(ctx.message.text, history, user.language, subPrompt);
     await db.saveConversation(userId, 'assistant', reply);
     await ctx.reply(reply).catch(() => {});
     await db.incrementMessages(userId);

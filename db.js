@@ -48,7 +48,8 @@ function initDB() {
         has_agreed INTEGER DEFAULT 0,
         joined_channel INTEGER DEFAULT 0,
         total_messages_all_time INTEGER DEFAULT 0,
-        premium_expires DATETIME
+        premium_expires DATETIME,
+        roleplay_mode TEXT DEFAULT 'default'
       )`);
 
       // Images table
@@ -391,6 +392,15 @@ async function autoSyncImages() {
   });
 }
 
+function setRoleplayMode(userId, mode) {
+  return new Promise((resolve, reject) => {
+    db.run('UPDATE users SET roleplay_mode = ? WHERE id = ?', [mode, userId], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 module.exports = {
   db,
   initDB,
@@ -420,5 +430,6 @@ module.exports = {
   addToken,
   removeToken,
   getAllTokens,
-  autoSyncImages
+  autoSyncImages,
+  setRoleplayMode
 };
