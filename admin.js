@@ -15,7 +15,12 @@ const ADMIN_PORT = config.PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Basic Auth
+// ✅ PUBLIC health-check endpoint — MUST be before basicAuth
+// Update your cron-job URL to: https://aibot-zlpg.onrender.com/ping
+app.get('/ping', (req, res) => res.status(200).send('OK'));
+app.get('/health', (req, res) => res.status(200).json({ status: 'alive', time: new Date().toISOString() }));
+
+// Basic Auth (applies to all routes BELOW this line)
 app.use(basicAuth({
   users: { [config.ADMIN_USER]: config.ADMIN_PASS },
   challenge: true
