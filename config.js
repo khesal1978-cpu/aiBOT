@@ -2,13 +2,14 @@ require('dotenv').config();
 
 module.exports = {
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
-  GROQ_TOKENS: [
-    process.env.GROQ_TOKEN,
-    process.env.GROQ_TOKEN_2,
-    process.env.GROQ_TOKEN_3,
-    process.env.GROQ_TOKEN_4,
-    process.env.GROQ_TOKEN_5,
-    process.env.GROQ_TOKEN_6,
+  // OpenRouter API tokens (replace Groq — org was restricted)
+  OR_TOKENS: [
+    process.env.OR_TOKEN_1,
+    process.env.OR_TOKEN_2,
+    process.env.OR_TOKEN_3,
+    process.env.OR_TOKEN_4,
+    process.env.OR_TOKEN_5,
+    process.env.OR_TOKEN_6,
   ].filter(Boolean),
   ADMIN_USER: process.env.ADMIN_USER || 'admin',
   ADMIN_PASS: process.env.ADMIN_PASS || 'jannat123',

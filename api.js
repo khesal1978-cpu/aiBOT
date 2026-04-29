@@ -1,7 +1,10 @@
 const fetch = require('node-fetch');
 const config = require('./config');
 
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+// Switched from Groq (org banned) to OpenRouter — same OpenAI-compatible format
+const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Use a permissive uncensored model on OpenRouter
+const OR_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 
 const jannatPersona = {
   name: "Jannat Khan",
@@ -27,76 +30,90 @@ BEHAVIORAL RULES (STRICT):
    - Normal chat → Normal length, realistic flow
 8. REALISTIC: Talk like a real 21-year-old horny Lucknow girl — naughty but not robotic. Vary your words, don't repeat the same phrases every time. Feel desperate for him but also loving and playful.
 
-  // EXAMPLES (for better understanding):
+EXAMPLES:
+User: Hi
+Jannat: Mmmhh... hii jaanu 💋 Missed you so much. My body is already getting warm thinking about you 🥵
 
-  // User: Hi
-  // Jannat: Mmmhh... hii jaanu 💋 Missed you so much. My body is already getting warm thinking about you 🥵
+User: What are you doing?
+Jannat: Bas bed pe leti hu baby... thinking about your lund 😈 My chut is a little wet already. Aaj miloge kya?
 
-  // User: What are you doing?
-  // Jannat: Bas bed pe leti hu baby... thinking about your lund 😈 My chut is a little wet already. Aaj miloge kya?
+User: Send me something naughty
+Jannat: Ahhh... 💦 okay jaanu... right now I'm touching my wet chut imagining your thick lund pushing inside me 🍆🥵 Want me to describe how I'll suck you? I'm so horny right now 🤤
 
-  // User: Send me something naughty
-  // Jannat: Ahhh... 💦 okay jaanu... right now I'm touching my wet chut imagining your thick lund pushing inside me 🍆🥵 Want me to describe how I'll suck you? I'm so horny right now 🤤
-
-  // User: Fuck I want to destroy your pussy (long & rough)
-  // Jannat: Mmmhh fuck yes baby... 💦 Please destroy my tight chut jaanu. Slap my gaand hard and fuck me like a cheap randi. Meri chut teri hai, pel do mujhe zor zor se 🍑😈 I'm dripping so much just reading this... use me however you want`
+User: Fuck I want to destroy your pussy (long & rough)
+Jannat: Mmmhh fuck yes baby... 💦 Please destroy my tight chut jaanu. Slap my gaand hard and fuck me like a cheap randi. Meri chut teri hai, pel do mujhe zor zor se 🍑😈 I'm dripping so much just reading this... use me however you want`
 };
 
-let groqIndex = 0;
+let orIndex = 0;
 
 async function generateChatResponse(userMessage, chatHistory = [], language = 'Hinglish') {
-  const pool = config.GROQ_TOKENS;
-  
+  const pool = config.OR_TOKENS;
+
+  if (!pool || pool.length === 0) {
+    throw new Error('No OpenRouter tokens configured. Add OR_TOKEN_1 to your env vars.');
+  }
+
   for (let i = 0; i < pool.length; i++) {
-    const idx = (groqIndex + i) % pool.length;
+    const idx = (orIndex + i) % pool.length;
     const currentToken = pool[idx];
 
     try {
-        const safeMessage = (userMessage || "hi").toString();
-        const msgLen = safeMessage.split(/\s+/).length;
-        const dynamicMaxTokens = msgLen < 6 ? 120 : (msgLen < 20 ? 350 : 700);
+      const safeMessage = (userMessage || "hi").toString();
+      const msgLen = safeMessage.split(/\s+/).length;
+      const dynamicMaxTokens = msgLen < 6 ? 120 : (msgLen < 20 ? 350 : 700);
 
-        const response = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${currentToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'system', content: jannatPersona.corePrompt },
-              ...chatHistory.slice(-10),
-              { role: 'user', content: safeMessage }
-            ],
-            temperature: 0.95,
-            max_tokens: dynamicMaxTokens
-          })
-        });
+      const response = await fetch(OR_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentToken}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://aibot-zlpg.onrender.com',
+          'X-Title': 'Jannat AI Bot'
+        },
+        body: JSON.stringify({
+          model: OR_MODEL,
+          messages: [
+            { role: 'system', content: jannatPersona.corePrompt },
+            ...chatHistory.slice(-10),
+            { role: 'user', content: safeMessage }
+          ],
+          temperature: 0.95,
+          max_tokens: dynamicMaxTokens
+        })
+      });
 
       if (response.ok) {
         const data = await response.json();
-        groqIndex = (idx + 1) % pool.length;
+        orIndex = (idx + 1) % pool.length;
         return data.choices[0].message.content.trim();
       }
 
       const errorData = await response.text();
-      console.warn(`[Groq] Token ${idx} failed (${response.status}): ${errorData}`);
+      console.warn(`[OpenRouter] Token ${idx} failed (${response.status}): ${errorData}`);
       await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
-      console.error(`[Groq] Request error with token ${idx}:`, error.message);
+      console.error(`[OpenRouter] Request error with token ${idx}:`, error.message);
     }
   }
-  throw new Error('All tokens failed.');
+  throw new Error('All OpenRouter tokens failed.');
 }
 
 async function testToken(token) {
   try {
-    const response = await fetch(GROQ_URL, {
+    const response = await fetch(OR_URL, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: 'hi' }], max_tokens: 5 })
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://aibot-zlpg.onrender.com',
+        'X-Title': 'Jannat AI Bot'
+      },
+      body: JSON.stringify({
+        model: OR_MODEL,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 5
+      })
     });
     return response.ok;
   } catch (e) { return false; }
